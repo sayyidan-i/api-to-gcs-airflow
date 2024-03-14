@@ -10,7 +10,7 @@ from google.cloud import storage
 
 # Define the DAG
 with DAG(
-    'etl_csv_files',
+    'etl_csv_files_postgres',
     start_date=datetime(2024, 3, 11),
     schedule= '@monthly'
 ):
@@ -29,12 +29,6 @@ with DAG(
         df = pd.read_csv(url)
         print("Sample data from the file: ", df.head())
         return df
-    
-    def load_to_gcs(df):
-        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/opt/airflow/config/workshop-airflow-cf94a0a51899.json'
-        client = storage.Client()
-        bucket = client.get_bucket('airflow_explore')
-        bucket.blob('merged_data.csv').upload_from_string(df.to_csv(), 'text/csv')
     
     @task
     def get_files_customer(**kwargs):
@@ -69,18 +63,21 @@ with DAG(
     
 
     @task
-    def load_to_gcs_task(**kwargs):
+    def load_to_postgres(**kwargs):
+        host = Variable.get('postgres_host')
+        port = Variable.get('postgres_port')
+        database = Variable.get('postgres_database')
+        username = Variable.get('postgres_username')
+        password = Variable.get('postgres_password')
+        
+        conn_string = f'postgresql://{username}:{password}@{host}:{port}/{database}'
+        conn = create_engine(conn_string)
+        print("Connection established")
+        
         task_instance = kwargs['task_instance']
         df = task_instance.xcom_pull('merge_data')
-        load_to_gcs(df)
-        print("Data loaded to GCS")
+        df.to_sql('merged_data', conn, index=False, if_exists='replace')
+        print("Data loaded to Postgres")
         
     #start >> get_files_customer() >> get_files_product() >> get_files_purchase() >> merge_data() >> load_to_gcs_task() >> end
-    start >> [get_files_customer(), get_files_product(), get_files_purchase()] >> merge_data() >> load_to_gcs_task() >> end
-    
-        
-
-
-
-
-
+    start >> [get_files_customer(), get_files_product(), get_files_purchase()] >> merge_data() >> load_to_postgres() >> end

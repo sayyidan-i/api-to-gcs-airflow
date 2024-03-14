@@ -1,0 +1,5 @@
+POSTGRES_HOST,ep-purple-shape-a53vjb7k.us-east-2.aws.neon.tech
+POSTGRES_PORT,5432
+POSTGRES_DATABASE,data-eng
+POSTGRES_USERNAME,sayyidan
+POSTGRES_PASSWORD,FnKPR6yh9tAf
